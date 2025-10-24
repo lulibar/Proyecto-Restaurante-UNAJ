@@ -1,11 +1,10 @@
 const getDeliveryLabel = (deliveryTypeName) => {
-    // Usamos toLowerCase() para que sea más robusto
-    switch (deliveryTypeName.toLowerCase()) {
-        case 'dine in':
+    switch (deliveryTypeName) {
+        case 'Dine-In':
             return 'Mesa:';
-        case 'take away':
+        case 'Take away':
             return 'Retira:';
-        case 'delivery':
+        case 'Delivery':
             return 'Dirección:';
         default:
             return 'Detalle:';

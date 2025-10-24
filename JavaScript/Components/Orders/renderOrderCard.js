@@ -1,21 +1,40 @@
 export const createOrderCardHTML = (order, statuses) => {
     const itemsHTML = order.items.map(item => {
         const nextStatus = statuses.find(s => s.id > item.status.id && s.name !== 'Cancelado' && s.name !== 'Entregado');
-        return `
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-            <div>
-                ${item.quantity}x ${item.dish.name}
-                <br>
-                <small class="badge bg-secondary">${item.status.name}</small>
-            </div>
-            ${nextStatus ? `
-            <button class="btn btn-outline-primary btn-sm move-item-btn"
+        const CANCELLED_STATUS_ID = 5; 
+        const cancelButtonHTML = (item.status.id !== CANCELLED_STATUS_ID && item.status.name !== 'Entregado') ? ` 
+            <button type="button" 
+                    class="btn-close cancel-item-btn" 
+                    aria-label="Cancelar item"
+                    title="Cancelar este item"
+                    style="font-size: 0.75rem;" 
+                    data-order-number="${order.orderNumber}"
+                    data-item-id="${item.id}">
+            </button>
+        ` : '<div style="height: 1.25rem;"></div>'; 
+
+        const moveButtonHTML = nextStatus ? `
+            <button class="btn btn-primary btn-sm move-item-btn mt-1" 
                     data-order-number="${order.orderNumber}"
                     data-item-id="${item.id}"
                     data-next-status-id="${nextStatus.id}">
                 ${nextStatus.name}
             </button>
-            ` : '<span class="badge bg-success">Listo</span>'}
+        ` : (item.status.id !== CANCELLED_STATUS_ID ? '<span class="badge bg-success mt-1">Listo</span>' : '');
+
+        return `
+        <li class="list-group-item d-flex justify-content-between align-items-start">
+            
+            <div>
+                ${item.quantity}x ${item.dish.name}
+                <br>
+                <small class="badge bg-secondary mt-1">${item.status.name}</small>
+            </div>
+
+            <div class="d-flex flex-column align-items-end">
+                ${cancelButtonHTML}
+                ${moveButtonHTML}
+            </div>
         </li>
         `;
     }).join('');

@@ -1,30 +1,52 @@
-import renderNavbar from '../Shared/navbar.js';
+// 1. IMPORTACIONES
 import { getOrders, getStatuses } from '../APIs/OrderApi.js';
-import { renderTodaysOrdersList, renderHistoryTable, renderSalesSummary, renderOrderDetailsModal, renderStatusFilterOptions } from '../Components/renderHistorial.js';
-import { setupHistorySearch, setupTodaysOrdersActions } from '../Handlers/historialHandler.js';
+import { createTodayOrderCardHTML } from '../Components/Historial/renderTodayOrderCard.js';
+import { createHistoryTableRowHTML } from '../Components/Historial/renderHistoryTableRow.js';
+import { createSalesSummaryHTML } from '../Components/Historial/renderSalesSummary.js';
+import { createStatusFilterOptionsHTML } from '../Components/Historial/rendreStatusFilterOptions.js';
+import { createOrderModalContentHTML } from '../Components/Orders/renderOrderModal.js'; 
+import { setupHistorySearch, setupTodaysOrdersActions } from '../Handlers/Historial/historialHandler.js';
 
-// --- ESTADO DE LA PÁGINA ---
+// 2. ESTADO DE LA PÁGINA
 const state = {
     todaysOrders: [],
-    searchTerm: '',   
+    searchTerm: '', 
     statuses: []
 };
 
-// --- ELEMENTOS DEL DOM ---
+// 3. ELEMENTOS DEL DOM
 const todaysOrdersContainer = document.getElementById('todays-orders-container');
 const historyOrdersBody = document.getElementById('history-orders-body');
 const salesSummaryContainer = document.getElementById('sales-summary-container');
 const orderDetailsContent = document.getElementById('report-order-details-content');
 const statusFilterSelect = document.getElementById('history-status-filter');
 
-
-// --- LÓGICA DE LA APLICACIÓN ---
-const filterAndRenderTodaysOrders = () => {
+// 4. LÓGICA DE RENDERIZADO
+const renderTodaysOrders = () => {
     const searchTerm = state.searchTerm.toLowerCase();
     const filteredOrders = state.todaysOrders.filter(order => 
         order.orderNumber.toString().includes(searchTerm)
     );
-    renderTodaysOrdersList(filteredOrders, todaysOrdersContainer);
+
+    if (filteredOrders.length === 0) {
+        todaysOrdersContainer.innerHTML = '<p class="text-center mt-3">No se encontraron órdenes.</p>';
+        return;
+    }
+    todaysOrdersContainer.innerHTML = filteredOrders.map(createTodayOrderCardHTML).join('');
+};
+
+const renderHistory = (orders) => {
+    if (orders.length === 0) {
+        historyOrdersBody.innerHTML = '<tr><td colspan="5" class="text-center">No se encontraron órdenes para el período seleccionado.</td></tr>';
+        salesSummaryContainer.innerHTML = '';
+        return;
+    }
+    historyOrdersBody.innerHTML = orders.map(createHistoryTableRowHTML).join('');
+    salesSummaryContainer.innerHTML = createSalesSummaryHTML(orders);
+};
+
+const renderStatusOptions = () => {
+    statusFilterSelect.innerHTML += createStatusFilterOptionsHTML(state.statuses);
 };
 
 const loadTodaysOrders = async () => {
@@ -35,8 +57,8 @@ const loadTodaysOrders = async () => {
         const to = new Date(today.setHours(23, 59, 59, 999)).toISOString();
 
         const orders = await getOrders({ from, to });
-        state.todaysOrders = orders; // Guardamos la lista completa
-        filterAndRenderTodaysOrders(); // Renderizamos (ya filtrando si hay algo)
+        state.todaysOrders = orders;
+        renderTodaysOrders();
     } catch (error) {
         console.error("Error al cargar órdenes del día:", error);
         todaysOrdersContainer.innerHTML = '<p class="text-danger">Error al cargar las órdenes.</p>';
@@ -49,21 +71,12 @@ const handleHistorySearch = async (fromDate, toDate, statusId) => {
         salesSummaryContainer.innerHTML = '';
 
         const filters = {};
-
-        if (fromDate) {
-            filters.from = new Date(fromDate).toISOString();
-        }
-        if (toDate) {
-            filters.to = new Date(new Date(toDate).setHours(23, 59, 59, 999)).toISOString();
-        }
-        
-        if (statusId) {
-            filters.statusId = statusId;
-        }
+        if (fromDate) filters.from = new Date(fromDate).toISOString();
+        if (toDate) filters.to = new Date(new Date(toDate).setHours(23, 59, 59, 999)).toISOString();
+        if (statusId) filters.statusId = statusId;
 
         const orders = await getOrders(filters); 
-        renderHistoryTable(orders, historyOrdersBody);
-        renderSalesSummary(orders, salesSummaryContainer);
+        renderHistory(orders);
     } catch (error) {
         console.error("Error al buscar historial:", error);
         historyOrdersBody.innerHTML = '<tr><td colspan="5" class="text-danger text-center">Error al buscar las órdenes.</td></tr>';
@@ -71,31 +84,32 @@ const handleHistorySearch = async (fromDate, toDate, statusId) => {
 };
 
 const showOrderDetails = (orderNumber) => {
+    // Buscamos en las órdenes de hoy (o podríamos necesitar buscar en el historial también)
     const order = state.todaysOrders.find(o => o.orderNumber === orderNumber);
-    renderOrderDetailsModal(order, orderDetailsContent);
+    if (order) {
+        orderDetailsContent.innerHTML = createOrderModalContentHTML(order);
+    }
 };
 
-// --- INICIALIZACIÓN ---
-const initializePage = async () => {
+const handleSearchInput = (term) => {
+    state.searchTerm = term;
+    renderTodaysOrders();
+};
+
+// 6. INICIALIZACIÓN DE LA PÁGINA
+export const initHistoryPage = async () => {
     try {
         const statuses = await getStatuses();
         state.statuses = statuses;
-        renderStatusFilterOptions(state.statuses, statusFilterSelect);
+        renderStatusOptions();
     } catch (error) {
         console.error("Error al cargar los estados:", error);
     }
+    
     loadTodaysOrders(); 
     setupHistorySearch(handleHistorySearch);
     setupTodaysOrdersActions({
-        onSearch: (term) => {
-            state.searchTerm = term;
-            filterAndRenderTodaysOrders();
-        },
+        onSearch: handleSearchInput,
         onViewDetails: showOrderDetails,
     });
 };
-
-document.addEventListener('DOMContentLoaded', () => {
-    renderNavbar();
-    initializePage();
-});

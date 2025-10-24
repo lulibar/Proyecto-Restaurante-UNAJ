@@ -1,67 +1,76 @@
-import renderNavbar from '../Shared/navbar.js';
+// 1. IMPORTACIONES
 import { getDishes, getCategories, createDish, updateDish, deleteDish, getDishById } from '../APIs/DishApi.js';
-import { renderDishesTable, renderCategoryFilterOptions, renderDishFormModal } from '../Components/renderDishes.js';
-import { setupDishPageFilters, setupDishPageActions } from '../Handlers/dishesHandler.js';
+import { createDishTableRowHTML } from '../Components/Dishes/renderDishTableRow.js';
+import { createCategoryOptionsHTML } from '../Components/Dishes/renderCategoryOptions.js';
+import { renderDishForm } from '../Components/Dishes/renderDishForm.js';
+import { setupDishPageFilters, setupDishPageActions } from '../Handlers/Dishes/dishesHandler.js';
+import { debounce, isUUID } from '../Shared/utils.js';
 
-// --- ESTADO DE LA PÁGINA ---
+// 2. ESTADO Y ELEMENTOS DEL DOM
 const state = {
     dishes: [],
     categories: [],
     filters: {
         name: '',
         category: '',
-        onlyActive: '', 
+        onlyActive: true, 
     }
 };
-let modalInstance = null;
-
-// --- ELEMENTOS DEL DOM ---
+let modalInstance = null; 
 const dishesTableBody = document.getElementById('dishes-table-body');
 const categoryFilterSelect = document.getElementById('dish-category-filter');
+const categoryFormSelect = document.getElementById('dish-category');
 
-// --- LÓGICA DE LA APLICACIÓN ---
+// 3. FUNCIONES DE RENDERIZADO
+const renderTable = () => {
+    if (state.dishes.length === 0) {
+        dishesTableBody.innerHTML = '<tr><td colspan="6" class="text-center">No se encontraron platos.</td></tr>';
+        return;
+    }
+    dishesTableBody.innerHTML = state.dishes.map(createDishTableRowHTML).join('');
+};
 
-const applyFiltersAndRender = async () => {
+const renderCategoryFilters = () => {
+    const optionsHTML = createCategoryOptionsHTML(state.categories);
+    categoryFilterSelect.innerHTML += optionsHTML; 
+};
+
+// 4. LÓGICA DE LA APLICACIÓN (Callbacks)
+const loadDishesAndRender = async () => {
     try {
         dishesTableBody.innerHTML = '<tr><td colspan="6" class="text-center">Buscando...</td></tr>';
         
         const searchTerm = state.filters.name.trim();
         let dishes = [];
-
         if (isUUID(searchTerm)) {
-            console.log("Detectado formato UUID, buscando por ID...");
             const dish = await getDishById(searchTerm);
-            if (dish) {
-                dishes = [dish]; 
-            }
+            dishes = dish ? [dish] : [];
         } else {
-            console.log("Buscando por nombre y otros filtros...");
             const activeFilters = {};
             if (searchTerm) activeFilters.name = searchTerm;
             if (state.filters.category) activeFilters.category = state.filters.category;
-            if (state.filters.onlyActive === 'true') activeFilters.onlyActive = true;
+            if (state.filters.onlyActive) activeFilters.onlyActive = true;
             
             dishes = await getDishes(activeFilters);
         }
-
         state.dishes = dishes;
-        renderDishesTable(state.dishes, dishesTableBody);
+        renderTable();
         
     } catch (error) {
-        console.error("Error al aplicar filtros:", error);
+        console.error("Error al cargar platos:", error);
         dishesTableBody.innerHTML = '<tr><td colspan="6" class="text-danger text-center">Error al cargar los platos.</td></tr>';
     }
 };
 
 const handleCreateClick = () => {
-    renderDishFormModal(null, state.categories);
+    renderDishForm(null, state.categories);
     modalInstance.show();
 };
 
 const handleEditClick = (dishId) => {
     const dishToEdit = state.dishes.find(d => d.id === dishId);
     if (dishToEdit) {
-        renderDishFormModal(dishToEdit, state.categories);
+        renderDishForm(dishToEdit, state.categories);
         modalInstance.show();
     }
 };
@@ -69,12 +78,11 @@ const handleEditClick = (dishId) => {
 const handleDeleteClick = async (dishId) => {
     const dishToDelete = state.dishes.find(d => d.id === dishId);
     if (!dishToDelete) return;
-
     if (confirm(`¿Estás seguro de que quieres eliminar el plato "${dishToDelete.name}"?`)) {
         try {
             await deleteDish(dishId);
             alert('Plato eliminado con éxito.');
-            await applyFiltersAndRender(); 
+            await loadDishesAndRender(); 
         } catch (error) {
             alert(`Error al eliminar: ${error.message}`);
         }
@@ -86,7 +94,6 @@ const handleFormSubmit = async (event) => {
     const saveBtn = document.getElementById('save-dish-btn');
     saveBtn.disabled = true;
     saveBtn.textContent = 'Guardando...';
-
     const dishId = document.getElementById('dish-id').value;
     const dishData = {
         name: document.getElementById('dish-name').value,
@@ -96,20 +103,18 @@ const handleFormSubmit = async (event) => {
         image: document.getElementById('dish-image').value,
         isActive: document.getElementById('dish-isActive').checked, 
     };
-
     try {
         if (dishId) {
             await updateDish(dishId, dishData);
             alert('Plato actualizado con éxito.');
         } else {
-            
             const createData = { ...dishData };
-            delete createData.isActive;
+            delete createData.isActive; 
             await createDish(createData);
             alert('Plato creado con éxito.');
         }
         modalInstance.hide();
-        await applyFiltersAndRender(); 
+        await loadDishesAndRender(); 
     } catch (error) {
         alert(`Error al guardar: ${error.message}`);
     } finally {
@@ -118,41 +123,39 @@ const handleFormSubmit = async (event) => {
     }
 };
 
-const isUUID = (str) => {
-    const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
-    return uuidRegex.test(str);
-};
-
-
-// --- INICIALIZACIÓN ---
-const initializePage = async () => {
+// 5. INICIALIZACIÓN DE LA PÁGINA
+export const initDishesPage = async () => {
     try {
-        const [dishes, categories] = await Promise.all([
-            getDishes({ onlyActive: true }), 
-            getCategories()
-        ]);
-        state.dishes = dishes;
+        const categories = await getCategories();
         state.categories = categories;
+        renderCategoryFilters();
+        document.getElementById('dish-active-filter').checked = state.filters.onlyActive;
+        await loadDishesAndRender();
+        modalInstance = new bootstrap.Modal(document.getElementById('dishFormModal'));
+        const debouncedLoadDishes = debounce(loadDishesAndRender, 500);
+        setupDishPageFilters(
+            (searchTerm) => { 
+                state.filters.name = searchTerm;
+                debouncedLoadDishes();
+            },
+            (categoryId) => { 
+                state.filters.category = categoryId;
+                loadDishesAndRender();
+            },
+            (isActive) => { 
+                state.filters.onlyActive = isActive;
+                loadDishesAndRender();
+            }
+        );
 
-        renderDishesTable(state.dishes, dishesTableBody);
-        renderCategoryFilterOptions(state.categories, categoryFilterSelect);
-
-        document.getElementById('dish-active-filter').checked = true;
-        
-        setupDishPageFilters(state, applyFiltersAndRender);
         setupDishPageActions({
-        onCreateClick: handleCreateClick,
-        onEditClick: handleEditClick,
-        onDeleteClick: handleDeleteClick,
-        onFormSubmit: handleFormSubmit,
-    });
+            onCreateClick: handleCreateClick,
+            onEditClick: handleEditClick,
+            onDeleteClick: handleDeleteClick,
+            onFormSubmit: handleFormSubmit,
+        });
+
     } catch (error) {
         console.error("Error al inicializar la página:", error);
     }
 };
-
-document.addEventListener('DOMContentLoaded', () => {
-    renderNavbar();
-    modalInstance = new bootstrap.Modal(document.getElementById('dishFormModal'));
-    initializePage();
-});

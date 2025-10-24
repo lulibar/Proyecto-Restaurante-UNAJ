@@ -75,19 +75,30 @@ export const updateDish = async (dishId, dishData) => {
 };
 
 
+// JavaScript/APIs/DishApi.js
+
 export const deleteDish = async (dishId) => {
     try {
         const response = await fetch(`${API_BASE_URL}/Dish/${dishId}`, {
             method: 'DELETE',
         });
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'No se pudo eliminar el plato.');
+            let errorMsg = response.statusText; 
+            try {
+                const errorBody = await response.text();
+                if (errorBody) { 
+                    errorMsg = errorBody; 
+                }
+            } catch (e) {
+            }
+            throw new Error(errorMsg); 
         }
-        return await response.json();
+
+        return true; 
+
     } catch (error) {
         console.error('Error en deleteDish:', error);
-        throw error;
+        throw error; 
     }
 };
 

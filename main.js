@@ -1,13 +1,28 @@
-import { renderHomePage } from './JavaScript/Pages/indexAdmin.jsjs';
-import { initializeDashboard } from './JavaScript/Pages/panelAdmin.js';
+// main.js
+import { initPanelPage } from './JavaScript/Pages/panelAdmin.js';
+import { initHistoryPage } from './JavaScript/Pages/historialAdmin.js'; 
+import { initDishesPage } from './JavaScript/Pages/dishesAdmin.js'; 
+import { initIndexPage } from './JavaScript/Pages/indexAdmin.js'; 
+import renderNavbar from './JavaScript/Shared/navbar.js';
 
-
-// Este evento se dispara cuando todo el HTML ha sido cargado y procesado por el navegador.
-// Es el punto de partida perfecto para nuestra aplicación.
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('¡El DOM está listo! Iniciando la aplicación.');
-    renderHomePage();
-    initializeDashboard();
+    console.log('main.js: El DOM está listo.');
+    renderNavbar(); 
 
+    if (document.getElementById('orders-board-container')) {
+        console.log('main.js: Iniciando panelAdmin.js');
+        initPanelPage();
+    } 
+    else if (document.getElementById('reportsTab')) { 
+        console.log('main.js: Iniciando historialAdmin.js');
+        initHistoryPage();
+    }
+    else if (document.getElementById('dishes-table-body')) {
+        console.log('main.js: Iniciando dishesAdmin.js');
+        initDishesPage();
+    }
+    else if (document.getElementById('dish-container')) { 
+        console.log('main.js: Iniciando indexAdmin.js');
+        initIndexPage();
+    }
 });
-

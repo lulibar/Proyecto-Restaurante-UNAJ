@@ -1,4 +1,4 @@
-export const setupOrderCardActions = (container, handleUpdate, handleViewDetails) => {
+/* export const setupOrderCardActions = (container, handleUpdate, handleViewDetails) => {
     container.addEventListener('click', (event) => {
         const moveButton = event.target.closest('.move-item-btn');
         const detailsButton = event.target.closest('.view-details-btn');
@@ -16,4 +16,4 @@ export const setupOrderCardActions = (container, handleUpdate, handleViewDetails
             handleViewDetails(orderNumber); 
         }
     });
-};
+};*/

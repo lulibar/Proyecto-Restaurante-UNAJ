@@ -1,5 +1,5 @@
 
-export const renderStatusColumns = (statuses, container) => {
+/* export const renderStatusColumns = (statuses, container) => {
     const filteredStatuses = statuses.filter(s => s.name !== 'Entregado' && s.name !== 'Cancelado');
 
     const columnsHTML = filteredStatuses.map(status => `
@@ -113,3 +113,4 @@ const getDeliveryLabel = (deliveryTypeName) => {
             return 'Detalle:';
     }
 };
+*/
