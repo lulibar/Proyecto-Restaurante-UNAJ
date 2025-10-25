@@ -52,38 +52,32 @@ namespace Application.Services.OrderServices
 
             orderItem.StatusId = request.status;
             var allItems = order.OrderItems.ToList();
+            var activeItems = allItems.Where(item => item.StatusId != (int)OrderStatus.Closed).ToList();
 
-            if (allItems.All(item => item.StatusId == (int)OrderStatus.Closed))
+            if (!activeItems.Any()) 
             {
                 order.OverallStatusId = (int)OrderStatus.Closed;
             }
-            else
+            else 
             {
-                var activeItems = allItems.Where(item => item.StatusId != (int)OrderStatus.Closed).ToList();
-
-                if (activeItems.Any()) 
+                if (activeItems.Any(item => item.StatusId == (int)OrderStatus.Pending))
                 {
-                    var firstActiveItemStatus = activeItems.First().StatusId;
-                    if (activeItems.All(item => item.StatusId == firstActiveItemStatus))
-                    {
-                        order.OverallStatusId = firstActiveItemStatus;
-                    }
-                    else
-                    {
-                        if (activeItems.Any(item => item.StatusId == (int)OrderStatus.InProgress))
-                        {
-                            order.OverallStatusId = (int)OrderStatus.InProgress;
-                        }
-                        else
-                        {
-                            order.OverallStatusId = (int)OrderStatus.Pending;
-                        }
-                    }
+                    order.OverallStatusId = (int)OrderStatus.Pending;
                 }
-                else
+                else if (activeItems.Any(item => item.StatusId == (int)OrderStatus.InProgress))
                 {
-                    order.OverallStatusId = (int)OrderStatus.Closed;
+                    order.OverallStatusId = (int)OrderStatus.InProgress;
                 }
+                else if (activeItems.All(item => item.StatusId == (int)OrderStatus.Ready))
+                {
+                    order.OverallStatusId = (int)OrderStatus.Ready;
+                }
+                
+                else if (activeItems.All(item => item.StatusId == (int)OrderStatus.Delivery))
+                {
+                    order.OverallStatusId = (int)OrderStatus.Delivery;
+                }
+                
             }
 
             order.UpdateDate = DateTime.UtcNow;

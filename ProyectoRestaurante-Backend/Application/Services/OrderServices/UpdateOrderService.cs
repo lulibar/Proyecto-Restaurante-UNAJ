@@ -34,7 +34,7 @@ namespace Application.Services.OrderServices
 
         public async Task<OrderDetailsResponse> UpdateOrder(long orderId, OrderUpdateRequest updateRequest)
         {
-            if (updateRequest?.items == null ) //|| !updateRequest.items.Any()
+            if (updateRequest?.items == null ) 
                 throw new BadRequestException("La solicitud para agregar ítems no puede estar vacía.");
 
             if (updateRequest.items.Any(item => item.quantity < 0))
@@ -62,22 +62,21 @@ namespace Application.Services.OrderServices
                 var existingItem = order.OrderItems.FirstOrDefault(oi => oi.DishId == itemRequest.id);
                 var dish = dishDictionary[itemRequest.id];
 
-                if (existingItem != null)
+                if (existingItem != null) 
                 {
                     if (itemRequest.quantity > 0)
                     {
                         existingItem.Quantity = itemRequest.quantity;
                         existingItem.Notes = itemRequest.notes;
-
                         if (existingItem.StatusId == (int)OrderStatus.Closed)
                         {
                             existingItem.StatusId = (int)OrderStatus.Pending;
                         }
-
                     }
                     else 
                     {
-                        existingItem.Quantity = 0; 
+                        
+                        existingItem.Quantity = 0;
                         existingItem.StatusId = (int)OrderStatus.Closed;
                     }
                 }
@@ -87,6 +86,7 @@ namespace Application.Services.OrderServices
                     {
                         var newItem = new OrderItem
                         {
+                            OrderId = order.OrderId, 
                             DishId = itemRequest.id,
                             Quantity = itemRequest.quantity,
                             Notes = itemRequest.notes,
@@ -97,14 +97,21 @@ namespace Application.Services.OrderServices
                 }
             }
 
-            var allItems = order.OrderItems.ToList();
-            if (allItems.All(item => item.StatusId == (int)OrderStatus.Closed))
+            if (itemsToAdd.Any())
+            {
+                await _orderItemCommand.InsertOrderItemRange(itemsToAdd);
+                foreach (var item in itemsToAdd) { if (!order.OrderItems.Contains(item)) order.OrderItems.Add(item); }
+            }
+
+            var allCurrentItems = order.OrderItems.ToList();
+
+            if (allCurrentItems.All(item => item.StatusId == (int)OrderStatus.Closed))
             {
                 order.OverallStatusId = (int)OrderStatus.Closed;
             }
             else
             {
-                var activeItems = allItems.Where(item => item.StatusId != (int)OrderStatus.Closed).ToList();
+                var activeItems = allCurrentItems.Where(item => item.StatusId != (int)OrderStatus.Closed).ToList();
                 if (activeItems.Any())
                 {
                     var firstActiveItemStatus = activeItems.First().StatusId;
@@ -130,7 +137,8 @@ namespace Application.Services.OrderServices
                 }
             }
 
-            order.Price = CalculateTotalPrice(order.OrderItems.ToList()); 
+            var allRequiredDishes = await _dishQuery.GetDishesByIds(allCurrentItems.Select(i => i.DishId).Distinct());
+            order.Price = CalculateTotalPrice(allCurrentItems.Where(oi => oi.StatusId != (int)OrderStatus.Closed).ToList()); // Pasamos allRequiredDishes
             order.UpdateDate = DateTime.UtcNow;
 
             await _orderCommand.UpdateOrder(order);
