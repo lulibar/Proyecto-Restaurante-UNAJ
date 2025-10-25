@@ -142,7 +142,8 @@ const updateComandaQuantity = (dishId, action) => {
     } else if (action === 'decrease') {
         if (state.comanda[itemIndex].quantity > 0) {
             state.comanda[itemIndex].quantity--;
-    }   }
+        }   
+    }
     renderComandaView();
 };
 
@@ -259,41 +260,28 @@ const handleConfirmOrder = async () => {
     confirmarComandaBtn.textContent = 'Enviando...';
 
     try {
-        const orderData = {
-            items: state.comanda.map(item => ({ id: item.id, quantity: item.quantity, notes: item.notes })),
-            delivery: { id: state.selectedDeliveryType.id, to: deliveryDetail },
-            notes: "" 
-        };
-
         let result;
-        if (state.editingOrderNumber) {
-            const itemsPayload = [];
-            state.originalComandaItems.forEach((originalItem, dishId) => {
-                const currentItem = state.comanda.find(item => item.id === dishId);
-                
-                if (currentItem && currentItem.quantity > 0) {
-                    itemsPayload.push({ 
-                        id: currentItem.id, 
-                        quantity: currentItem.quantity, 
-                        notes: currentItem.notes 
-                    });
-                } else if (currentItem && currentItem.quantity <= 0) {
-                    itemsPayload.push({ 
-                        id: currentItem.id, 
-                        quantity: 0, 
-                        notes: currentItem.notes 
-                    });
-                }
-                
-                else if (!currentItem) {
+        if (state.editingOrderNumber) { 
+            
+            const itemsPayload = state.comanda.map(currentItem => ({
+                id: currentItem.id,
+                quantity: currentItem.quantity, 
+                notes: currentItem.notes
+            }));
+            
+
+            state.originalComandaItems.forEach((_originalItem, dishId) => {
+                if (!state.comanda.some(item => item.id === dishId)) {
                     itemsPayload.push({
                         id: dishId,
                         quantity: 0,
-                        notes: originalItem.notes 
+                        notes: _originalItem.notes 
                     });
                 }
             });
+
             const updatePayload = { items: itemsPayload }; 
+            console.log("Enviando payload PATCH:", JSON.stringify(updatePayload, null, 2)); // DEBUG Detallado
             result = await patchOrder(state.editingOrderNumber, updatePayload);
             alert(`¡Orden #${result.orderNumber} actualizada con éxito!`);
         }
